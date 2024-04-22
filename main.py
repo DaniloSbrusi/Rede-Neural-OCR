@@ -13,14 +13,14 @@ mnist_dataloader = MnistDataloader(training_images_filepath, training_labels_fil
 
 (x_train, y_train), (x_test, y_test) = mnist_dataloader.load_data()
 
-NEURONIOS_CAMADA_OCULTA = 100
-TAXA_APRENDIZADO = 0.7
+NEURONIOS_OCULTOS = 100
+TAXA = 0.3
 
 entradas = []
 saidas_desejadas = [] 
-rede_neural = [[],[],[]] # 3 camadas de neurônios
-pesos = [] # Pesos das conexões entre neurônios
-limiares = [] # Bias dos neurônios da camada oculta e saída
+rede_neural = [[],[],[]] 
+pesos = [] 
+limiares = []
 
 
 def inicializacao_xavier_pesos(n_entrada, n_saida):
@@ -28,51 +28,30 @@ def inicializacao_xavier_pesos(n_entrada, n_saida):
     pesos = np.random.uniform(-limite, limite, size=(n_entrada, n_saida))
     return pesos
 
-def configura_pesos_xavier():
+def configura_pesos():
     global pesos
-    pesos = [{},{}]
-    pesos[0] = inicializacao_xavier_pesos(28*28, NEURONIOS_CAMADA_OCULTA)
-    pesos[1] = inicializacao_xavier_pesos(NEURONIOS_CAMADA_OCULTA, 10)
+    pesos = [np.array([]), np.array([])]
+    pesos[0] = inicializacao_xavier_pesos(28*28, NEURONIOS_OCULTOS)
+    pesos[1] = inicializacao_xavier_pesos(NEURONIOS_OCULTOS, 10)
 
-def configura_pesos_aleatorios():
-    global pesos
-    pesos = [{},{}]
-    for neuronio_entrada in range(28*28):
-        for neuronio_oculto in range(NEURONIOS_CAMADA_OCULTA):
-            pesos[0][(neuronio_entrada, neuronio_oculto)] = random.random()
-    for neuronio_oculto in range(NEURONIOS_CAMADA_OCULTA):
-        for neuronio_saida in range(10):
-            pesos[1][(neuronio_oculto, neuronio_saida)] = random.random()
-    
-def inicializacao_xavier_pesos_limiares(num_neuronios_entrada, num_neuronios_saida):
+def inicializacao_xavier_limiares(num_neuronios_entrada, num_neuronios_saida):
     limite = math.sqrt(1.0 / num_neuronios_entrada)
     limiares = [random.uniform(-limite, limite) for _ in range(num_neuronios_saida)]
     return limiares
 
-def configura_limiares_xavier():
+def configura_limiares():
     global limiares
     limiares = [[], []]
-    limiares[0] = inicializacao_xavier_pesos_limiares(28*28, NEURONIOS_CAMADA_OCULTA)
-    limiares[1] = inicializacao_xavier_pesos_limiares(NEURONIOS_CAMADA_OCULTA, 10)
-
-def configura_limiares_aleatorios():
-    global limiares
-    limiares = [[],[]]
-    for neuronio in range(NEURONIOS_CAMADA_OCULTA):
-        limiares[0].append(random.random())
-    for neuronio in range(10):
-        limiares[1].append(random.random())
-    
+    limiares[0] = inicializacao_xavier_limiares(28*28, NEURONIOS_OCULTOS)
+    limiares[1] = inicializacao_xavier_limiares(NEURONIOS_OCULTOS, 10)
+  
 def configura_entradas(amostra):
     global rede_neural
-    rede_neural[0].clear()
-    for linha in range(28):
-        for coluna in range(28):
-            rede_neural[0].append(x_train[amostra][linha][coluna]/254) # Valores de entrada entre 0 e 1
+    rede_neural[0] = np.array(x_train[amostra]).reshape(-1) / 254
 
 def configura_saidas(amostra):
     global saidas_desejadas
-    saidas_desejadas = [0] * 10  # Inicializa todas as saídas como 0
+    saidas_desejadas = [0] * 10  
     saidas_desejadas[y_train[amostra]] = 1
 
 def funcao_ativacao(x):
@@ -80,48 +59,29 @@ def funcao_ativacao(x):
 
 def calcula_camadas():
     global rede_neural
-    rede_neural[1].clear()
-    rede_neural[2].clear()
-    for neuronio_oculto in range(NEURONIOS_CAMADA_OCULTA):
-        somatorio = 0
-        for neuronio_entrada in range(28*28):
-            somatorio += rede_neural[0][neuronio_entrada]*pesos[0][(neuronio_entrada, neuronio_oculto)]
-        somatorio += limiares[0][neuronio_oculto]
-        rede_neural[1].append(funcao_ativacao(somatorio))
-    for neuronio_saida in range(10):
-        somatorio = 0
-        for neuronio_oculto in range(NEURONIOS_CAMADA_OCULTA):
-            somatorio += rede_neural[1][neuronio_oculto]*pesos[1][(neuronio_oculto, neuronio_saida)]
-        somatorio += limiares[0][neuronio_saida]
-        rede_neural[2].append(funcao_ativacao(somatorio))
+    rede_neural[1] = funcao_ativacao(np.dot(rede_neural[0], pesos[0]) + limiares[0])
+    rede_neural[2] = funcao_ativacao(np.dot(rede_neural[1], pesos[1]) + limiares[1])
 
-def ajusta_pesos_e_limiares():
+def ajusta_parametros():
+
     global pesos, limiares
-    pesos_novos = [{},{}]
-    limiares_novos = [[],[]]
+    pesos_novos = pesos
 
-    # Ajuste pesos para camada de saída
     for neuronio_saida in range(10):
-        for neuronio_oculto in range(NEURONIOS_CAMADA_OCULTA):
-            pesos_novos[1][(neuronio_oculto, neuronio_saida)] = pesos[1][(neuronio_oculto, neuronio_saida)]-(TAXA_APRENDIZADO*(rede_neural[2][neuronio_saida]-saidas_desejadas[neuronio_saida])*rede_neural[2][neuronio_saida]*(1-rede_neural[2][neuronio_saida])*rede_neural[1][neuronio_oculto])
-        # Ajuste limiares da camada de saída
-        limiares_novos[1].append(limiares[1][neuronio_saida]-(TAXA_APRENDIZADO*rede_neural[2][neuronio_saida]*(1-rede_neural[2][neuronio_saida])*(rede_neural[2][neuronio_saida]-saidas_desejadas[neuronio_saida])))
+        delta_saida = (rede_neural[2][neuronio_saida]-saidas_desejadas[neuronio_saida])*rede_neural[2][neuronio_saida]*(1-rede_neural[2][neuronio_saida])
+        pesos_novos[1][:, neuronio_saida] -= TAXA*delta_saida*rede_neural[1]
+        limiares[1][neuronio_saida] -= TAXA*delta_saida
 
-    # Ajuste de pesos para camada oculta
-    for neuronio_oculto in range(NEURONIOS_CAMADA_OCULTA):
+    for neuronio_saida in range(10):
+        delta_saida = (rede_neural[2][neuronio_saida] - saidas_desejadas[neuronio_saida]) * rede_neural[2][neuronio_saida] * (1 - rede_neural[2][neuronio_saida])
+        delta_oculto = rede_neural[1] * (1 - rede_neural[1]) * delta_saida * pesos[1][:, neuronio_saida]
+
         for neuronio_entrada in range(28*28):
-            delta = 0
-            for neuronio_saida in range(10):
-                delta+=(rede_neural[2][neuronio_saida]-saidas_desejadas[neuronio_saida])*rede_neural[2][neuronio_saida]*(1-rede_neural[2][neuronio_saida])*pesos[1][(neuronio_oculto, neuronio_saida)]
-            pesos_novos[0][(neuronio_entrada, neuronio_oculto)] = pesos[0][(neuronio_entrada, neuronio_oculto)]- TAXA_APRENDIZADO*delta*rede_neural[1][neuronio_oculto]*(1-rede_neural[1][neuronio_oculto])*rede_neural[0][neuronio_entrada]
-        # Ajuste de limiares da camada oculta
-        delta = 0
-        for neuronio_saida in range(10):
-            delta += (rede_neural[2][neuronio_saida]-saidas_desejadas[neuronio_saida])*rede_neural[2][neuronio_saida]*(1-rede_neural[2][neuronio_saida])*pesos[1][(neuronio_oculto, neuronio_saida)]
-        limiares_novos[0].append(limiares[0][neuronio_oculto]-TAXA_APRENDIZADO*delta*rede_neural[1][neuronio_oculto]*(1-rede_neural[1][neuronio_oculto]))
+            delta = np.dot(delta_oculto, pesos[0][neuronio_entrada, :]) * rede_neural[0][neuronio_entrada]
+            pesos_novos[0][neuronio_entrada, :] -= TAXA * delta
 
-    # Atualiza valores
-    limiares = limiares_novos
+        limiares[0][neuronio_saida] -= TAXA * np.sum(delta * delta_oculto)
+
     pesos = pesos_novos
 
 def calcula_erro_total():
@@ -131,14 +91,15 @@ def calcula_erro_total():
     return erro
 
 def treinamento():
+    configura_pesos()
+    configura_limiares()
     for num_amostra in range(len(x_train)):
         configura_entradas(num_amostra)
         configura_saidas(num_amostra)
         calcula_camadas()
-        ajusta_pesos_e_limiares()
-        saida_arredondada = [round(num, 2) for num in rede_neural[2]]
-        print('Num. ' + str(y_train[num_amostra]) + ' --> ' + str(saida_arredondada) + ' (Erro = ' + str(round(calcula_erro_total(),2)) + ')')
+        ajusta_parametros()
+        # saida_arredondada = [round(num, 2) for num in rede_neural[2]]
+        # print('Num. ' + str(y_train[num_amostra]) + ' --> ' + str(saida_arredondada) + ' (Erro = ' + str(round(calcula_erro_total(),2)) + ')')
+        print(calcula_erro_total())
 
-configura_pesos_xavier()
-configura_limiares_xavier()
 treinamento()
