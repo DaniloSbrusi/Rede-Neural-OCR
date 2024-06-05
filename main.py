@@ -10,8 +10,8 @@ class RedeNeural:
         self.taxa = taxa
         self.saidas_desejadas = []
         self.rede_neural = [[], [], []]
-        self.pesos = []
-        self.limiares = []
+        self.pesos = [[],[]]
+        self.limiares = [[],[]]
 
         self.training_images_filepath = join(input_path, 'train-images-idx3-ubyte', 'train-images-idx3-ubyte')
         self.training_labels_filepath = join(input_path, 'train-labels-idx1-ubyte', 'train-labels-idx1-ubyte')
@@ -86,10 +86,23 @@ class RedeNeural:
 
     def processamento(self, imagem):
         self.configura_entradas(imagem)
-        self.calcula_camadas
+        self.calcula_camadas()
         return np.argmax(self.rede_neural[2])
+    
+    def salvar_parametros(self):
+        np.save('pesos-entrada', rede_neural.pesos[0])
+        np.save('pesos-camada-oculta', rede_neural.pesos[1])
+        np.save('limiares-camada-oculta', rede_neural.limiares[0])
+        np.save('limiares-saida', rede_neural.limiares[1])
+
+    def carregar_parametros(self):
+        self.pesos[0] = np.load('pesos-entrada.npy')
+        self.pesos[1] = np.load('pesos-camada-oculta.npy')
+        self.limiares[0] = np.load('limiares-camada-oculta.npy')
+        self.limiares[1] = np.load('limiares-saida.npy')
 
 if __name__ == "__main__":
     rede_neural = RedeNeural()
     rede_neural.treinamento()
+    rede_neural.salvar_parametros()
     rede_neural.teste()
